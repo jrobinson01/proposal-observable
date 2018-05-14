@@ -321,4 +321,174 @@ export class Observable {
         });
     }
 
+    static fromEvent(target, eventName) {
+      let C = typeof this === 'function' ? this : Observable;
+      return new C(observer => {
+        let handler = event => {
+          observer.next(event);
+        }
+        target.addEventListener(eventName, handler, true);
+        if (observer.closed) {
+          return;
+        }
+        return () => {
+          target.removeEventListener(eventName, handler, true);
+        }
+      });
+    }
+
+    map(mapFn) {
+      return new Observable(observer => {
+        return this.subscribe({
+          next: value => {
+            observer.next(mapFn(value));
+          },
+          error: err => observer.error(err),
+          complete: () => observer.complete()
+        });
+      });
+    };
+
+    filter(filterFn) {
+      return new Observable(observer => {
+        return this.subscribe({
+          next: value => {
+            if (filterFn(value)){
+              observer.next(value)
+            }
+          },
+          error: err => observer.error(err),
+          complete: () => observer.complete()
+        });
+      });
+    };
+
+    debounce(ms) {
+      return new Observable(observer => {
+        let timeout = null;
+        return this.subscribe({
+          next: value => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+              observer.next(value);
+            }, ms);
+          },
+          error: err => {
+            clearTimeout(timeout);
+            observer.error(err);
+          },
+          complete: () => {
+            clearTimeout(timeout);
+            observer.complete();
+          }
+        });
+      });
+    }
+
+    /**
+    * The Reduce operator applies a function to the first item emitted
+    * by the source Observable and then feeds the result of the function
+    * back into the function along with the second item emitted by the
+    * source Observable, continuing this process until the source
+    * Observable emits its final item and completes, whereupon the
+    * Observable returned from Reduce emits the final value returned
+    * from the function.
+    */
+    reduce(reduceFn) {
+      return new Observable(observer => {
+        let res;
+        return this.subscribe({
+          next: value => {
+            res = reduceFn(res, value);
+          },
+          error: err => {
+            observer.error(err);
+          },
+          complete: () => {
+            observer.next(res);
+            observer.complete();
+          }
+        });
+      });
+    }
+
+    // Take the first n items and then complete.
+    take(count) {
+      return new Observable(observer => {
+        return this.subscribe({
+          next: function(value) {
+            if (count > 0) {
+              observer.next(value);
+              count -= 1;
+            } else {
+              this.complete();
+            }
+          },
+          error: err => {
+            observer.error(err);
+          },
+          complete: () => {
+            observer.complete();
+          }
+        });
+      });
+    }
+
+    // take the last n items
+    takeLast(count) {
+      return new Observable(observer => {
+        const cache = [];
+        return this.subscribe({
+          next: value => {
+            cache.push(value);
+            if(cache.length > count) {
+              cache.shift();//
+            }
+          },
+          error: err => observer.error(err),
+          complete: () => {
+            while(cache.length > 0) {
+              observer.next(cache.shift());
+            }
+            observer.complete();
+          }
+        });
+      });
+    }
+
+    // take while fn returns true
+    takeWhile(whileFn) {
+      return new Observable(observer => {
+        return this.subscribe({
+          next: function(value) {
+            if (!whileFn(value)) {
+              this.complete();
+            } else {
+              observer.next(value);
+            }
+          },
+          error: err => observer.error(err),
+          complete: () => observer.complete()
+        });
+      });
+    }
+
+    // fires every n ms
+    interval(ms) {
+      return new Observable(observer => {
+        let count = 0;
+        let interval = setInterval(() => {
+          observer.next(count);
+          count += 1;
+        }, ms);
+        return this.subscribe({
+          next: value => {},
+          error: err => observer.error(err),
+          complete: () => {
+            clearInterval(interval);
+            observer.complete()
+          }
+        });
+      });
+    }
 }
