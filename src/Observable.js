@@ -337,6 +337,23 @@ export class Observable {
       });
     }
 
+    // merge multiple observables
+    static merge(...obs) {
+      let C = typeof this === 'function' ? this : Observable;
+      // subscribe to each observer, forward values
+      return new C(observer => {
+        obs.forEach(o => {
+          o.subscribe({
+            next: value => observer.next(value),
+            error: err => observer.error(err),
+            complete: () => observer.complete()
+          });
+        });
+        // TODO: teardown!
+        return () => {};
+      });
+    }
+
     map(mapFn) {
       return new Observable(observer => {
         return this.subscribe({
@@ -394,9 +411,9 @@ export class Observable {
     * Observable returned from Reduce emits the final value returned
     * from the function.
     */
-    reduce(reduceFn) {
+    reduce(reduceFn, seed) {
       return new Observable(observer => {
-        let res;
+        let res = seed;
         return this.subscribe({
           next: value => {
             res = reduceFn(res, value);
@@ -406,6 +423,25 @@ export class Observable {
           },
           complete: () => {
             observer.next(res);
+            observer.complete();
+          }
+        });
+      });
+    }
+
+    // just like reduce, but we call next immediately with the accumulated value
+    scan(scanFn, seed) {
+      return new Observable(observer => {
+        let res = seed;
+        return this.subscribe({
+          next: value => {
+            res = scanFn(res, value);
+            observer.next(res);
+          },
+          error: err => {
+            observer.error(err);
+          },
+          complete: () => {
             observer.complete();
           }
         });
@@ -491,4 +527,5 @@ export class Observable {
         });
       });
     }
+
 }
