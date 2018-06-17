@@ -528,4 +528,22 @@ export class Observable {
       });
     }
 
+    debounce(ms) {
+      return new Observable(observer => {
+        let timeout;
+        return this.subscribe({
+          next: value => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+              observer.next(value);
+            }, ms);
+          },
+          error: err => observer.error(err),
+          complete: () => {
+            clearTimeout(timeout);
+            observer.complete();
+          }
+        });
+      });
+    }
 }
